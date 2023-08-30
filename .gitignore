@@ -9,3 +9,19 @@ sample_preproc_data/spm_cuts/sample_preproc_test_4.spm
 sample_preproc_data/spm_cuts/sample_preproc_test_5.spm
 Overview - Crystal Surface Optimisation.pdf
 Overview - Crystal Surface Optimisation.pptx
+sample_preproc_data/sample_original_scan_norm.npy
+sample_preproc_data/sample_original_scan.npy
+sample_preproc_data/sample_untilted_scan_norm.npy
+sample_preproc_data/sample_untilted_scan.npy
+sample_preproc_data/terrace_sample/sample_preproc_test_1_terrace_IDEAL.jpg
+sample_preproc_data/terrace_sample/sample_preproc_test_1_terrace_IDEAL.tiff
+sample_preproc_data/terrace_sample/sample_preproc_test_1_terrace_IDEAL.xyz
+sample_preproc_data/terrace_sample/sample_preproc_test_1_terrace.gwy
+sample_preproc_data/terrace_sample/sample_preproc_test_1_terrace.gwyXYZ
+sample_preproc_data/terrace_sample/save-2011.11.30-14.25.48_terrace_IDEAL.jpg
+sample_preproc_data/terrace_sample/save-2011.11.30-14.25.48_terrace_IDEAL.tiff
+sample_preproc_data/terrace_sample/save-2011.11.30-14.25.48_terrace_IDEAL.xyz
+sample_preproc_data/terrace_sample/save-2011.11.30-14.25.48_terrace.gwy
+sample_preproc_data/terrace_sample/save-2011.11.30-14.25.48_terrace.gwyXYZ
+sample_preproc_data/terrace_sample/save-2011.11.30-14.25.48_terrace_200.xyz
+sample_preproc_data/terrace_sample/sample_preproc_test_1_terrace_200.xyz
