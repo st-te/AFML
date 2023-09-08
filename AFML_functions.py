@@ -95,7 +95,8 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from sklearn.cluster import DBSCAN, MeanShift
-from scipy.interpolate import RegularGridInterpolator, griddata, BSpline
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
 
 # Read AFM xyz
 def read_AFM_XYZ(filepath):
@@ -155,6 +156,35 @@ def down_shift(point_cloud, bandwidth):
         down_shifted_points.append(down_shifted_point)
 
     return np.array(down_shifted_points)
+
+# Terrace smoothing
+def smooth_terraces(point_cloud, smoothing_sigma):
+    # Sort the point cloud based on the z-values (terrace levels)
+    sorted_point_cloud = point_cloud[np.argsort(point_cloud[:, 2])]
+
+    # Initialize an empty array to store smoothed points
+    smoothed_points = []
+
+    # Iterate through each unique terrace level
+    unique_z_levels = np.unique(sorted_point_cloud[:, 2])
+    for z_level in unique_z_levels:
+        # Extract the points for the current terrace level
+        terrace_points = sorted_point_cloud[sorted_point_cloud[:, 2] == z_level]
+
+        # Apply Gaussian smoothing to the x and y coordinates of the terrace points
+        smoothed_x = gaussian_filter(terrace_points[:, 0], smoothing_sigma)
+        smoothed_y = gaussian_filter(terrace_points[:, 1], smoothing_sigma)
+
+        # Create a new array with smoothed x, y, and original z coordinates
+        smoothed_terrace = np.column_stack((smoothed_x, smoothed_y, np.full_like(smoothed_x, z_level)))
+
+        # Append the smoothed terrace to the result
+        smoothed_points.append(smoothed_terrace)
+
+    # Concatenate all smoothed terraces into a single array
+    smoothed_point_cloud = np.vstack(smoothed_points)
+
+    return smoothed_point_cloud
 
 # Plot AFM in 3D
 def plot_afm_3d(filtered_xyz):
