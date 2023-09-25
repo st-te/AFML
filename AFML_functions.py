@@ -235,6 +235,24 @@ def unique_z(afm):
     unique_z_values = set(point[2] for point in afm)
     return len(unique_z_values), unique_z_values
 
+# Order terraces
+def order_z(point_cloud):
+    # Extract the Z-values and their unique sorted order
+    z_values = np.array(point_cloud)[:, 3]
+    sorted_order = np.argsort(z_values)
+    
+    # Create a mapping from original Z-values to their order
+    z_to_order_mapping = {z: i + 1 for i, z in enumerate(np.unique(z_values))}
+    
+    # Update the first column based on the order
+    ordered_indices = [z_to_order_mapping[z] for z in z_values]
+    ordered_point_cloud = np.array(point_cloud)
+    ordered_point_cloud[:, 0] = ordered_indices
+
+    # Sort the data first by the index (first column), and then by the Z-value (last column)
+    sorted_point_cloud = ordered_point_cloud[ordered_point_cloud[:, 0].argsort(), :]
+    return sorted_point_cloud
+
 # Interpolate downsample
 def interpolate_downsample(afm_data, num_points_xy, method):
     """
