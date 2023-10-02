@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.spatial.distance import cdist
 
 # Read a .xyz
 def read_XYZ(filepath):
@@ -18,8 +19,22 @@ def read_XYZ(filepath):
     #return xyz[:,0], xyz[:,1], xyz[:,2], xyz[:,3]
     return xyz
 
-# Cut out a segment of n x n centred on (x,y) and normalise
-def cut_out(filepath, center_x, center_y, threshold):
+# Removes specified z-levels
+def remove_z_levels(point_cloud, z_levels_to_remove):
+    # Convert the point cloud to a NumPy array if it's not already
+    if not isinstance(point_cloud, np.ndarray):
+        point_cloud = np.array(point_cloud)
+
+    # Create a mask to filter rows based on Z-levels to remove
+    mask = np.isin(point_cloud[:, 0], z_levels_to_remove, invert=True)
+
+    # Apply the mask to filter rows and return the filtered point cloud
+    filtered_point_cloud = point_cloud[mask]
+
+    return filtered_point_cloud
+
+# Cut out a segment of n x n (distance) centred on (x,y) and normalise
+"""def cut_out(filepath, center_x, center_y, threshold):
     xyz = read_XYZ(filepath)
 
     # Calculate the bounds for the filtering box
@@ -39,17 +54,91 @@ def cut_out(filepath, center_x, center_y, threshold):
     norm = np.linalg.norm(xyz_filtered)
     xyz_filtered = xyz_filtered/norm
 
+    return xyz_filtered"""
+
+# Cut out a segment of n x n (distance) with lower bounds (x_min, y_min) and normalise
+def cut_out(xyz, x_min, y_min, threshold):
+    # Calculate the bounds for the filtering box
+    x_max = x_min + threshold
+    y_max = y_min + threshold
+
+    # Create masks to filter rows based on the box bounds
+    x_mask = (x_min <= xyz[:, 0]) & (xyz[:, 0] <= x_max)
+    y_mask = (y_min <= xyz[:, 1]) & (xyz[:, 1] <= y_max)
+
+    # Apply the masks to filter rows
+    xyz_filtered = xyz[x_mask & y_mask]
+
+    if len(xyz_filtered) == 0:
+        raise ValueError("No points found within the specified bounds.")
+
+    # Normalise
+    norm = np.linalg.norm(xyz_filtered)
+    xyz_filtered = xyz_filtered / norm
+
     return xyz_filtered
 
+def grid_based_remesh(point_cloud, num_points_xy):
+    """
+    Perform grid-based remeshing of a point cloud.
+
+    Parameters:
+    - point_cloud: The input point cloud data as a NumPy array (X, Y, Z).
+    - num_points_xy: The desired number of points in the X and Y dimensions for the structured grid.
+
+    Returns:
+    - remeshed_point_cloud: The remeshed point cloud.
+    """
+
+    # Separate X, Y, and Z components of the point cloud
+    x_points, y_points, z_points = point_cloud.T
+
+    # Calculate the grid cell size in each dimension
+    x_grid_size = (max(x_points) - min(x_points)) / (num_points_xy - 1)
+    y_grid_size = (max(y_points) - min(y_points)) / (num_points_xy - 1)
+
+    remeshed_points = []
+
+    # Iterate over each grid cell
+    for i in range(num_points_xy):
+        for j in range(num_points_xy):
+            # Define the bounds of the current grid cell
+            x_min = min(x_points) + i * x_grid_size
+            x_max = min(x_points) + (i + 1) * x_grid_size
+            y_min = min(y_points) + j * y_grid_size
+            y_max = min(y_points) + (j + 1) * y_grid_size
+
+            # Filter points within the current grid cell
+            mask = (x_min <= x_points) & (x_points <= x_max) & \
+                   (y_min <= y_points) & (y_points <= y_max)
+
+            # Calculate the average position of points in the grid cell
+            if np.sum(mask) > 0:
+                avg_x = np.mean(x_points[mask])
+                avg_y = np.mean(y_points[mask])
+                avg_z = np.mean(z_points[mask])
+
+                # Add the average point to the remeshed points
+                remeshed_points.append([avg_x, avg_y, avg_z])
+
+    # Convert the remeshed points to a NumPy array
+    remeshed_point_cloud = np.array(remeshed_points)
+
+    # Remove repeating/overlapping points
+    unique_indices = np.unique(remeshed_point_cloud[:, :2], axis=0, return_index=True)[1]
+    remeshed_point_cloud = remeshed_point_cloud[unique_indices]
+
+    return remeshed_point_cloud
+
 # Plot the facet in 3D
-def plot_facet_3d(filtered_xyz):
+def plot_CG_3d(filtered_xyz):
     
     colour, x, y, z = [filtered_xyz[:, i] for i in range(4)]
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
     colormap = plt.get_cmap("viridis")
 
-    plt.rcParams["figure.figsize"] = [3.0, 3.0]
+    plt.rcParams["figure.figsize"] = [4.0, 4.0]
     plt.rcParams["figure.autolayout"] = True
     
     # Normalize the 'colour' column to map it to the colormap
@@ -64,13 +153,13 @@ def plot_facet_3d(filtered_xyz):
     plt.show()
 
 # Plot the facet in 2D
-def plot_facet_2d(filtered_xyz):
+def plot_CG_2d(filtered_xyz):
     
     colour, x, y, z = [filtered_xyz[:, i] for i in range(4)]
     plt.figure()
     colormap = plt.get_cmap("viridis")  # You can choose other colormaps as well
 
-    plt.rcParams["figure.figsize"] = [3.0, 3.0]
+    plt.rcParams["figure.figsize"] = [4.0, 4.0]
     plt.rcParams["figure.autolayout"] = True
 
     # Normalize the 'colour' column to map it to the colormap
@@ -186,8 +275,8 @@ def smooth_terraces(point_cloud, smoothing_sigma):
 
     return smoothed_point_cloud
 
-# Plot AFM in 3D
-def plot_afm_3d(filtered_xyz):
+# Plot point cloud in 3D
+def plot_PC_3d(filtered_xyz, view1=45, view2=60):
     
     x, y, z = [filtered_xyz[:, i] for i in range(3)]
     fig = plt.figure()
@@ -205,18 +294,18 @@ def plot_afm_3d(filtered_xyz):
     cbar = plt.colorbar(scatter, ax=ax)
     cbar.set_label("Color Label")
     
-    ax.view_init(45, 60)
+    ax.view_init(view1, view2)
 
     plt.tight_layout()
 
     plt.show()
 
-# Plot AFM in 2d
-def plot_afm_2d(filtered_xyz):
+# Plot point cloud in 2d
+def plot_PC_2d(filtered_xyz):
     x, y, z = [filtered_xyz[:, i] for i in range(3)]
     plt.figure()
     colormap = plt.get_cmap("viridis")  # You can choose other colormaps as well
-    plt.rcParams["figure.figsize"] = [3.0, 3.0]
+    plt.rcParams["figure.figsize"] = [4.0, 4.0]
     plt.rcParams["figure.autolayout"] = True
     # Normalize the 'colour' column to map it to the colormap
     norm = plt.Normalize(z.min(), z.max())

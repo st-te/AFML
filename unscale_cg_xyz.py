@@ -50,5 +50,5 @@ def XYZ_out(a, path):
         for xyz_file in path.rglob('*' + extension):
             unscale_XYZ(a, xyz_file)
 
-XYZ_out(12.93, '/Users/user/Documents/PhD/AFML/PAR_ETH_100/20230809_154357/XYZ_files')
+XYZ_out(12.93, '/Users/user/Documents/PhD/AFML/test_sims/PAlsR_ETH_100_BIG/XYZ_files/PAR_ETH_100_1_ovito_CGvisualiser.XYZ')
 
