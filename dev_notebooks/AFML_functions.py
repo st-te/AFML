@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from scipy.spatial.distance import cdist
 
 # Read a .xyz
 def read_XYZ(filepath):
@@ -236,6 +237,7 @@ def scale_point_cloud(points, x_range=32, y_range=32):
 import numpy as np
 from pathlib import Path
 import matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN, MeanShift
 from scipy.interpolate import griddata
 from scipy.ndimage import gaussian_filter
 
@@ -255,6 +257,48 @@ def read_AFM_XYZ(filepath):
         # Sort based on the first column (x)
         xyz = xyz[xyz[:, 0].argsort()]
     return xyz
+
+# UNUSED - Mean shift of z-levels
+def mean_shift(point_cloud, bandwidth):
+    # Create a Mean Shift clustering model
+    ms = MeanShift(bandwidth=bandwidth)
+    
+    # Fit the model to the z-values of the point cloud
+    z_values = point_cloud[:, 2].reshape(-1, 1)
+    ms.fit(z_values)
+    # Determine the cluster centers (modal z-values)
+    modal_values = ms.cluster_centers_.flatten()
+
+    # Round the z-values based on the modal z-values
+    rounded_points = []
+    for point in point_cloud:
+        closest_modal_z = min(modal_values, key=lambda z: abs(z - point[2]))
+        rounded_point = [point[0], point[1], closest_modal_z]
+        rounded_points.append(rounded_point)
+
+    return np.array(rounded_points)
+
+# UNUSED - Down shift of z-levels
+def down_shift(point_cloud, bandwidth):
+    # Create a Mean Shift clustering model
+    ms = MeanShift(bandwidth=bandwidth)
+    
+    # Fit the model to the z-values of the point cloud
+    z_values = point_cloud[:, 2].reshape(-1, 1)
+    ms.fit(z_values)
+
+    # Determine the cluster centers (modal z-values)
+    modal_values = ms.cluster_centers_.flatten()
+
+    # Initialize a list to store the down-shifted points
+    down_shifted_points = []
+
+    for point in point_cloud:
+        closest_modal_z = min(modal_values, key=lambda z: abs(z - point[2]))
+        down_shifted_point = [point[0], point[1], closest_modal_z]
+        down_shifted_points.append(down_shifted_point)
+
+    return np.array(down_shifted_points)
 
 # Terrace smoothing
 def smooth_terraces(point_cloud, smoothing_sigma):
