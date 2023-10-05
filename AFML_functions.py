@@ -73,62 +73,42 @@ def cut_out(xyz, x_min, y_min, threshold):
         raise ValueError("No points found within the specified bounds.")
 
     # Normalise
-    norm = np.linalg.norm(xyz_filtered)
-    xyz_filtered = xyz_filtered / norm
+    #norm = np.linalg.norm(xyz_filtered)
+    #xyz_filtered = xyz_filtered / norm
 
     return xyz_filtered
 
-def grid_based_remesh(point_cloud, num_points_xy):
-    """
-    Perform grid-based remeshing of a point cloud.
-
-    Parameters:
-    - point_cloud: The input point cloud data as a NumPy array (X, Y, Z).
-    - num_points_xy: The desired number of points in the X and Y dimensions for the structured grid.
-
-    Returns:
-    - remeshed_point_cloud: The remeshed point cloud.
-    """
-
-    # Separate X, Y, and Z components of the point cloud
-    x_points, y_points, z_points = point_cloud.T
-
-    # Calculate the grid cell size in each dimension
-    x_grid_size = (max(x_points) - min(x_points)) / (num_points_xy - 1)
-    y_grid_size = (max(y_points) - min(y_points)) / (num_points_xy - 1)
-
-    remeshed_points = []
-
-    # Iterate over each grid cell
-    for i in range(num_points_xy):
-        for j in range(num_points_xy):
-            # Define the bounds of the current grid cell
-            x_min = min(x_points) + i * x_grid_size
-            x_max = min(x_points) + (i + 1) * x_grid_size
-            y_min = min(y_points) + j * y_grid_size
-            y_max = min(y_points) + (j + 1) * y_grid_size
-
-            # Filter points within the current grid cell
-            mask = (x_min <= x_points) & (x_points <= x_max) & \
-                   (y_min <= y_points) & (y_points <= y_max)
-
-            # Calculate the average position of points in the grid cell
-            if np.sum(mask) > 0:
-                avg_x = np.mean(x_points[mask])
-                avg_y = np.mean(y_points[mask])
-                avg_z = np.mean(z_points[mask])
-
-                # Add the average point to the remeshed points
-                remeshed_points.append([avg_x, avg_y, avg_z])
-
-    # Convert the remeshed points to a NumPy array
-    remeshed_point_cloud = np.array(remeshed_points)
-
-    # Remove repeating/overlapping points
-    unique_indices = np.unique(remeshed_point_cloud[:, :2], axis=0, return_index=True)[1]
-    remeshed_point_cloud = remeshed_point_cloud[unique_indices]
-
-    return remeshed_point_cloud
+# Voxelise a point cloud to remove atomic/crystallographic arrangement
+def voxelization(points, resolution):
+    # Extract columns
+    xs = points[:, 0]
+    ys = points[:, 1]
+    zs = points[:, 2]
+    
+    # Calculate voxel sizes based on resolution and the range of points in x and y
+    x_voxel_size = (xs.max() - xs.min()) / resolution
+    y_voxel_size = (ys.max() - ys.min()) / resolution
+    
+    # For voxelization, we'll floor-divide by voxel size and multiply again.
+    # This will ensure points falling in the same voxel get the same coordinates.
+    voxelized_xs = np.floor(xs / x_voxel_size) * x_voxel_size + x_voxel_size / 2
+    voxelized_ys = np.floor(ys / y_voxel_size) * y_voxel_size + y_voxel_size / 2
+    
+    # Group by voxelized (X, Y) and Z, then calculate the mean for each group
+    voxel_points = {}
+    for x, y, z in zip(voxelized_xs, voxelized_ys, zs):
+        if (x, y, z) not in voxel_points:
+            voxel_points[(x, y, z)] = []
+        voxel_points[(x, y, z)].append((x, y, z))
+    
+    # Now, for each voxel, we'll average the points (should be near identical due to voxelization)
+    centroids = []
+    for k, pts in voxel_points.items():
+        avg_x = np.mean([p[0] for p in pts])
+        avg_y = np.mean([p[1] for p in pts])
+        centroids.append([avg_x, avg_y, k[2]])  # Z is preserved
+        
+    return np.array(centroids)
 
 # Plot the facet in 3D
 def plot_CG_3d(filtered_xyz):
@@ -177,6 +157,22 @@ def plot_CG_2d(filtered_xyz):
 
     plt.show()
 
+# Normalize a point cloud
+def normalize_PC(point_cloud):
+    """
+    Normalize a point cloud containing only XYZ coordinates.
+
+    Args:
+    - point_cloud (numpy.ndarray): An Nx3 NumPy array where N is the number of points,
+    and each row contains [x, y, z] coordinates.
+
+    Returns:
+    - normalized_point_cloud (numpy.ndarray): The normalized point cloud.
+    """
+    norm = np.linalg.norm(point_cloud, axis=1, keepdims=True)
+    normalized_point_cloud = point_cloud / norm
+
+    return normalized_point_cloud
 
 ## AFM
 
@@ -301,11 +297,11 @@ def plot_PC_3d(filtered_xyz, view1=45, view2=60):
     plt.show()
 
 # Plot point cloud in 2d
-def plot_PC_2d(filtered_xyz):
+def plot_PC_2d(filtered_xyz, size=4.0):
     x, y, z = [filtered_xyz[:, i] for i in range(3)]
     plt.figure()
     colormap = plt.get_cmap("viridis")  # You can choose other colormaps as well
-    plt.rcParams["figure.figsize"] = [4.0, 4.0]
+    plt.rcParams["figure.figsize"] = [size, size]
     plt.rcParams["figure.autolayout"] = True
     # Normalize the 'colour' column to map it to the colormap
     norm = plt.Normalize(z.min(), z.max())
@@ -323,6 +319,36 @@ def plot_PC_2d(filtered_xyz):
 def unique_z(afm):
     unique_z_values = set(point[2] for point in afm)
     return len(unique_z_values), unique_z_values
+
+# Point cloud dimensions
+def extract_dimensions(point_cloud):
+    """
+    Extract dimensions (length, width, height) from a point cloud.
+
+    Args:
+    - point_cloud (numpy.ndarray): An Nx3 NumPy array where N is the number of points,
+    and each row contains [x, y, z] coordinates.
+
+    Returns:
+    - dimensions (dict): A dictionary containing 'length', 'width', and 'height' dimensions.
+    """
+    if len(point_cloud) == 0:
+        raise ValueError("Point cloud is empty")
+
+    min_x, min_y, min_z = np.min(point_cloud, axis=0)
+    max_x, max_y, max_z = np.max(point_cloud, axis=0)
+
+    length = max_x - min_x
+    width = max_y - min_y
+    height = max_z - min_z
+
+    dimensions = {
+        'length': length,
+        'width': width,
+        'height': height
+    }
+
+    return dimensions
 
 # Interpolate downsample
 def interpolate_downsample(afm_data, num_points_xy, method):
