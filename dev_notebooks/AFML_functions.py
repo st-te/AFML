@@ -1,10 +1,62 @@
-## CrystalGrower
-
 import numpy as np
 from pathlib import Path
+
+#CG
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import cdist
+
+#Mat-Eig
+from scipy.spatial import ConvexHull
+from scipy.spatial.transform import Rotation as R
+
+#AFM
+import matplotlib.pyplot as plt
+from sklearn.cluster import DBSCAN, MeanShift
+from scipy.interpolate import griddata
+from scipy.ndimage import gaussian_filter
+
+
+## Mat-Eig methodology
+
+##THIS IS NOT WORKING
+def rotate_point_cloud(points, miller_indices):
+    """
+    Rotate the point cloud so that the plane defined by the Miller indices (hkl)
+    becomes parallel to the (001) plane.
+
+    Parameters:
+    - points: numpy array of points where columns are [label, x, y, z]
+    - miller_indices: tuple of (h, k, l) defining the plane
+
+    Returns:
+    - A numpy array of the rotated points.
+    """
+    # Define the normal vector from the Miller indices
+    h, k, l = miller_indices
+    normal_vector = np.array([h, k, l])
+    target_vector = np.array([0, 0, 1])  # z-axis
+
+    # Calculate the rotation axis (cross product of normal vector and target vector)
+    rotation_axis = np.cross(normal_vector, target_vector)
+    # Calculate the angle of rotation (arccosine of the dot product of normalized vectors)
+    angle = np.arccos(np.dot(normal_vector, target_vector) / (np.linalg.norm(normal_vector) * np.linalg.norm(target_vector)))
+
+    # Calculate the rotation matrix using the axis-angle representation
+    rotation_matrix = R.from_rotvec(rotation_axis * angle).as_matrix()
+
+    # Apply the rotation to the point cloud
+    rotated_points = np.dot(points[:, 1:4], rotation_matrix)
+
+    # Combine the labels with the rotated coordinates
+    rotated_point_cloud = np.hstack((points[:, [0]], rotated_points))
+
+    return rotated_point_cloud
+
+
+
+
+## CrystalGrower
 
 # Read a .xyz
 def read_XYZ(filepath):
@@ -234,12 +286,6 @@ def scale_point_cloud(points, x_range=32, y_range=32):
 
 ## AFM
 
-import numpy as np
-from pathlib import Path
-import matplotlib.pyplot as plt
-from sklearn.cluster import DBSCAN, MeanShift
-from scipy.interpolate import griddata
-from scipy.ndimage import gaussian_filter
 
 # Read AFM xyz
 def read_AFM_XYZ(filepath):
