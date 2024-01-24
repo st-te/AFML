@@ -419,6 +419,29 @@ def plot_PC_2d(filtered_xyz, size=4.0):
 
     plt.show()
 
+
+def plot_PC_2d_vers(filtered_xyz, size=4.0):
+    x, y, z = [filtered_xyz[:, i] for i in range(3)]
+    
+    # Set figure size here rather than using rcParams to avoid global changes
+    fig, ax = plt.subplots(figsize=(size, size))
+    
+    colormap = plt.get_cmap("viridis")  # You can choose other colormaps as well
+    
+    # Normalize the 'colour' column to map it to the colormap
+    norm = plt.Normalize(z.min(), z.max())
+
+    scatter = ax.scatter(x, y, c=z, cmap=colormap, norm=norm, s=15)
+
+    #cbar = plt.colorbar(scatter)
+    #cbar.set_label("Color Label")
+
+    plt.tight_layout()
+
+    ax.autoscale_view()
+
+    plt.show()
+
 # Unique Z-values
 def unique_z(afm):
     unique_z_values = set(point[2] for point in afm)
